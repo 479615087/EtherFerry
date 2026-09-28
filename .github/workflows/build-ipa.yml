@@ -25,23 +25,34 @@ jobs:
           xcodebuild -version
           xcode-select -p
 
-      # 不用 brew（慢且易因网络失败），直接下载 XcodeGen 官方发布包
+      # 优先下载 XcodeGen 官方发布包；下载后严格校验，失败自动回退 brew 安装
       - name: Install XcodeGen
         run: |
           set -euxo pipefail
-          curl -fsSL --retry 3 -o /tmp/xcodegen.zip \
-            https://github.com/yonaskolb/XcodeGen/releases/latest/download/xcodegen.zip
-          unzip -q -o /tmp/xcodegen.zip -d /tmp/xcodegen
-          ls -la /tmp/xcodegen
-          echo "/tmp/xcodegen/bin" >> "$GITHUB_PATH"
-          export PATH="/tmp/xcodegen/bin:$PATH"
-          xcodegen --version
+          rm -rf /tmp/xcodegen /tmp/xcodegen.zip
+          if curl -fSL --retry 5 --retry-all-errors --connect-timeout 20 \
+                -o /tmp/xcodegen.zip \
+                https://github.com/yonaskolb/XcodeGen/releases/latest/download/xcodegen.zip \
+             && [ -s /tmp/xcodegen.zip ]; then
+            unzip -q /tmp/xcodegen.zip -d /tmp/xcodegen
+            find /tmp/xcodegen -maxdepth 3 -name xcodegen -type f || true
+          fi
+          XG_BIN=""
+          for p in /tmp/xcodegen/bin/xcodegen /tmp/xcodegen/xcodegen/bin/xcodegen; do
+            if [ -x "$p" ]; then XG_BIN="$p"; break; fi
+          done
+          if [ -z "$XG_BIN" ]; then
+            echo "::warning::XcodeGen zip 下载/解压失败，回退到 brew 安装"
+            brew install xcodegen
+            XG_BIN="$(command -v xcodegen)"
+          fi
+          echo "$(dirname "$XG_BIN")" >> "$GITHUB_PATH"
+          "$XG_BIN" --version
 
       - name: Generate Xcode project
         working-directory: ios/EtherFerry
         run: |
           set -euxo pipefail
-          export PATH="/tmp/xcodegen/bin:$PATH"
           xcodegen generate
           ls -la
 
