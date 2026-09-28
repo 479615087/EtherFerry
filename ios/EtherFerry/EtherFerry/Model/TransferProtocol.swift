@@ -48,13 +48,13 @@ enum TransferProtocol {
     /// 按指定窗口位尝试解压：>0 表示带 zlib 头，-15 表示 raw DEFLATE
     private static func tryInflate(_ compressed: Data, windowBits: Int32) -> Data? {
         var stream = z_stream()
-        guard inflateInit2_(&stream,
+        guard zlib.inflateInit2_(&stream,
                             windowBits,
-                            zlibVersion(),
+                            zlib.zlibVersion(),
                             Int32(MemoryLayout<z_stream>.size)) == Z_OK else {
             return nil
         }
-        defer { inflateEnd(&stream) }
+        defer { zlib.inflateEnd(&stream) }
 
         // 拷贝一份可写的输入缓冲区
         var input = [UInt8](compressed)
@@ -71,7 +71,7 @@ enum TransferProtocol {
                 let written = buffer.withUnsafeMutableBufferPointer { outputBuffer -> Int in
                     stream.next_out = outputBuffer.baseAddress
                     stream.avail_out = UInt32(chunkSize)
-                    let status = inflate(&stream, Z_NO_FLUSH)
+                    let status = zlib.inflate(&stream, Z_NO_FLUSH)
                     if status == Z_STREAM_END || status == Z_OK || status == Z_BUF_ERROR {
                         return chunkSize - Int(stream.avail_out)
                     }
