@@ -12,12 +12,20 @@ on:
 
 jobs:
   build:
-    runs-on: macos-14
+    runs-on: macos-15
     timeout-minutes: 30
 
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+
+      # 主动选用镜像里最新的 Xcode（避免默认选中过旧版本打不开新工程格式）
+      - name: Select newest Xcode
+        run: |
+          ls -d /Applications/Xcode*.app | sort -V
+          NEWEST="$(ls -d /Applications/Xcode*.app | sort -V | tail -1)"
+          sudo xcode-select -s "$NEWEST/Contents/Developer"
+          xcodebuild -version
 
       - name: Show environment
         run: |
