@@ -58,6 +58,7 @@ enum TransferProtocol {
 
         // 拷贝一份可写的输入缓冲区
         var input = [UInt8](compressed)
+        let inputCount = input.count
         let chunkSize = 4096
         var buffer = [UInt8](repeating: 0, count: chunkSize)
         var output = Data()
@@ -65,7 +66,7 @@ enum TransferProtocol {
 
         input.withUnsafeMutableBufferPointer { inputBuffer in
             stream.next_in = inputBuffer.baseAddress
-            stream.avail_in = UInt32(input.count)
+            stream.avail_in = UInt32(inputCount)
 
             while true {
                 let written = buffer.withUnsafeMutableBufferPointer { outputBuffer -> Int in
