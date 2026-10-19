@@ -1,10 +1,7 @@
 name: Build unsigned iOS IPA
 
-# 在 GitHub 的免费 macOS 云主机上编译 iOS 应用，产出未签名 IPA。
-# 未签名 IPA 下载到 Windows 后，用 Sideloadly / AltServer 用自己的 Apple ID 重签即可装到自己的 iPhone。
-
 on:
-  workflow_dispatch:          # 支持在 GitHub 网页上一键手动触发
+  workflow_dispatch:
   push:
     paths:
       - 'ios/**'
@@ -19,7 +16,6 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      # 主动选用镜像里最新的 Xcode（避免默认选中过旧版本打不开新工程格式）
       - name: Select newest Xcode
         run: |
           ls -d /Applications/Xcode*.app | sort -V
@@ -33,7 +29,6 @@ jobs:
           xcodebuild -version
           xcode-select -p
 
-      # 优先下载 XcodeGen 官方发布包；下载后严格校验，失败自动回退 brew 安装
       - name: Install XcodeGen
         run: |
           set -euxo pipefail
@@ -68,7 +63,7 @@ jobs:
         working-directory: ios/EtherFerry
         run: |
           set -o pipefail
-          xcodebuild archive \
+          if xcodebuild archive \
             -project EtherFerry.xcodeproj \
             -scheme EtherFerry \
             -configuration Release \
@@ -78,7 +73,22 @@ jobs:
             CODE_SIGN_IDENTITY="" \
             CODE_SIGNING_REQUIRED=NO \
             CODE_SIGNING_ALLOWED=NO \
-            AD_HOC_CODE_SIGNING_ALLOWED=NO 2>&1 | tee build.log | tail -40
+            AD_HOC_CODE_SIGNING_ALLOWED=NO > build.log 2>&1; then
+            echo "archive 成功"
+          else
+            STATUS=$?
+            echo "======== 全部 error 行 ========"
+            grep -nE "error:" build.log | head -60 || true
+            echo "=============================="
+            exit $STATUS
+          fi
+
+      - name: Upload full build log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: build-log
+          path: ios/EtherFerry/build.log
 
       - name: Pack unsigned IPA
         working-directory: ios/EtherFerry
